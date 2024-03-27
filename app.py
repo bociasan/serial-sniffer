@@ -4,7 +4,7 @@ import threading
 import serial.tools.list_ports
 from PyQt5.QtCore import Qt, QStringListModel
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QComboBox, QHBoxLayout, QPushButton, QGroupBox, QLabel,
-                             QListView, QMessageBox)
+                             QListView, QMessageBox, QLineEdit)
 
 MAX_SERIALS = 4
 
@@ -56,6 +56,7 @@ class SerialSniffer(QWidget):
         self.serial_models = []
         self.serial_combos = []
         self.buttons_visibility = []
+        self.data_inputs = []
         # self.current_num_serials = 0
         self.dropdown = QComboBox()
         self.init_ui()
@@ -107,26 +108,44 @@ class SerialSniffer(QWidget):
                 close_button.clicked.connect(lambda _, idx=i: self.serial_close(idx))
                 buttons_layout.addWidget(open_button)
                 buttons_layout.addWidget(close_button)
-                self.buttons_visibility.append([open_button.setEnabled,
-                                                close_button.setEnabled,
-                                                test_com_button.setEnabled])
+
                 self.serial_combos.append(com_dropdown)
                 self.serial_settings.append(serial_groupbox)
                 self.right_layout.addWidget(serial_groupbox)
 
                 ### DATA ### noqa
                 data_groupbox = QGroupBox(f'Serial {i+1}')
+                data_groupbox.setMinimumWidth(500)
+                data_groupbox.setMinimumHeight(200)
                 data_groupbox_layout = QVBoxLayout()
                 data_groupbox.setLayout(data_groupbox_layout)
                 model = QStringListModel()
                 data_list = QListView()
                 data_list.setModel(model)
                 data_groupbox_layout.addWidget(data_list)
+
+                send_layout = QHBoxLayout()
+                input_field = QLineEdit()
+                input_field.setEnabled(False)
+                send_layout.addWidget(input_field)
+                send_button = QPushButton("Send")
+                send_button.setEnabled(False)
+                send_button.clicked.connect(lambda _, idx=i: self.serial_send(idx))
+                send_layout.addWidget(send_button)
+
+                data_groupbox_layout.addLayout(send_layout)
                 self.serial_data_list.append(data_list)
                 self.serial_data.append(data_groupbox)
                 self.serial_stream.append(None)
                 self.serial_models.append(model)
+                self.data_inputs.append(input_field)
                 self.left_layout.addWidget(data_groupbox)
+
+                self.buttons_visibility.append([open_button.setEnabled,
+                                                close_button.setEnabled,
+                                                test_com_button.setEnabled,
+                                                input_field.setEnabled,
+                                                send_button.setEnabled])
 
         elif num_serials < current_num_serials:
             for i in range(num_serials, current_num_serials):
@@ -144,6 +163,7 @@ class SerialSniffer(QWidget):
 
                 self.serial_models.pop()
                 self.serial_data_list.pop()
+                self.data_inputs.pop()
 
                 item = self.serial_data.pop()
                 item.deleteLater()
@@ -172,29 +192,32 @@ class SerialSniffer(QWidget):
         self.serial_data_list[idx].verticalScrollBar().setValue(self.serial_data_list[idx]
                                                                 .verticalScrollBar().maximum())
 
-    def disable_buttons(self, idx):
-        try:
-            open_button, close_button, test_button = self.buttons_visibility[idx]
-            open_button(False)
-            close_button(True)
-            test_button(False)
-        except Exception: # noqa
-            pass
+    def set_visibility(self, idx, op_type):
+        serial_opened_states = [False, True, False, True, True]
+        serial_closed_states  = [True, False, True, False, False]
 
-    def enable_buttons(self, idx):
+        states = serial_opened_states if op_type else serial_closed_states
+
         try:
-            open_button, close_button, test_button = self.buttons_visibility[idx]
-            open_button(True)
-            close_button(False)
-            test_button(True)
+            setter = self.buttons_visibility[idx]
+            for i, value in enumerate(states):
+                setter[i](value)
         except Exception: # noqa
             pass
 
     def start_listening(self, idx):
         self.serial_open(idx)
-        self.disable_buttons(idx)
+        self.set_visibility(idx, True)
         threading.Thread(target=uart_listen,
                          args=(self.thread_finished, idx, self.serial_stream[idx], self.update_serial_model)).start()
+
+    def serial_send(self, idx):
+        # msg = b"Hello!"
+        msg = self.data_inputs[idx].text().encode()
+        try:
+            self.serial_stream[idx].write(msg)
+        except Exception as e:
+            print(e)
 
     def serial_open(self, idx):
         selected_port = self.serial_combos[idx].currentText().split(" ")[0]
@@ -204,7 +227,7 @@ class SerialSniffer(QWidget):
             QMessageBox.information(self, "Alert", str(e))
 
     def serial_close(self, idx):
-        self.enable_buttons(idx)
+        self.set_visibility(idx, False)
         try:
             self.serial_stream[idx].close()
         except Exception as e: # noqa
