@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QComboBox, QHBo
                              QListView, QMessageBox, QLineEdit)
 
 MAX_SERIALS = 4
+MAX_ROWS = 50
 
 
 def get_available_ports():
@@ -43,8 +44,8 @@ class SerialSniffer(QWidget):
         self.left_layout = QVBoxLayout()
         self.right_layout = QVBoxLayout()
         self.right_layout.setAlignment(Qt.AlignTop)
-        self.left_groupbox = QGroupBox("Data")
-        self.right_groupbox = QGroupBox("Settings")
+        self.left_groupbox = QGroupBox()
+        self.right_groupbox = QGroupBox()
         self.right_groupbox.setFixedWidth(250)
         self.left_groupbox.setLayout(self.left_layout)
         self.right_groupbox.setLayout(self.right_layout)
@@ -57,6 +58,7 @@ class SerialSniffer(QWidget):
         self.serial_combos = []
         self.buttons_visibility = []
         self.data_inputs = []
+        self.encodings = []
         # self.current_num_serials = 0
         self.dropdown = QComboBox()
         self.init_ui()
@@ -68,7 +70,23 @@ class SerialSniffer(QWidget):
         self.main_layout.addWidget(self.left_groupbox)
         self.main_layout.addWidget(self.right_groupbox)
 
-        self.right_layout.addWidget(self.dropdown)
+        settings_groupbox = QGroupBox(f'Settings')
+        settings_groupbox_layout = QVBoxLayout()
+        settings_groupbox.setLayout(settings_groupbox_layout)
+        dropdown_label = QLabel("Count:")
+
+        settings_row1_layout = QHBoxLayout()
+        settings_row1_layout.addWidget(dropdown_label)
+        settings_row1_layout.addWidget(self.dropdown)
+        settings_groupbox_layout.addLayout(settings_row1_layout)
+
+        settings_row2_layout = QHBoxLayout()
+        com_refresh_button = QPushButton("Refresh")
+        com_refresh_button.clicked.connect(self.update_all_dropdown_ports)
+        settings_row2_layout.addWidget(com_refresh_button)
+        settings_groupbox_layout.addLayout(settings_row2_layout)
+
+        self.right_layout.addWidget(settings_groupbox)
         self.dropdown.addItems([str(i) for i in range(MAX_SERIALS + 1)])  # Dropdown starts from 1
         self.dropdown.currentIndexChanged.connect(self.set_serials)
         self.dropdown.setCurrentIndex(2)
@@ -81,19 +99,47 @@ class SerialSniffer(QWidget):
             for i in range(current_num_serials, num_serials):
                 ### SETTINGS ### noqa
                 serial_groupbox = QGroupBox(f'Serial {i+1}')
-                serial_groupbox.setFixedHeight(140)
+                serial_groupbox.setFixedHeight(180)
                 serial_groupbox_layout = QVBoxLayout()
                 buttons_layout = QHBoxLayout()
-                com_layout = QHBoxLayout()
-                com_dropdown = QComboBox()
 
-                com_dropdown.addItems(get_available_ports())
-                com_label = QLabel("Select COM:")
-                com_label.setAlignment(Qt.AlignRight)
-                com_layout.addWidget(com_label)
-                com_layout.addWidget(com_dropdown)
+                comport_layout = QHBoxLayout()
+                comport_dropdown = QComboBox()
+                comport_dropdown.clear()
+                comport_dropdown.addItems(get_available_ports())
+                comport_label = QLabel("Select COM:")
+                comport_label.setAlignment(Qt.AlignRight)
+                comport_layout.addWidget(comport_label)
+                comport_layout.addWidget(comport_dropdown)
+                serial_groupbox_layout.addLayout(comport_layout)
+
+                comspeed_layout = QHBoxLayout()
+                comspeed_dropdown = QComboBox()
+                COM_SPEEDS = ["110", "300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200",
+                              "230400", "460800", "921600"]
+                comspeed_dropdown.addItems(COM_SPEEDS)
+                comspeed_dropdown.setCurrentIndex(9)
+                comspeed_label = QLabel("SPEED:")
+                comspeed_label.setAlignment(Qt.AlignRight)
+                comspeed_layout.addWidget(comspeed_label)
+                comspeed_layout.addWidget(comspeed_dropdown)
+                serial_groupbox_layout.addLayout(comspeed_layout)
+
+                encodings_layout = QHBoxLayout()
+                items = ["ASCII", "BINARY"]
+                rx_encoding_dropdown = QComboBox()
+                tx_encoding_dropdown = QComboBox()
+                rx_encoding_dropdown.addItems(items)
+                tx_encoding_dropdown.addItems(items)
+                rx_encoding_dropdown.setCurrentIndex(1)
+                tx_encoding_dropdown.setCurrentIndex(1)
+                encodings_layout.addWidget(rx_encoding_dropdown)
+                encodings_layout.addWidget(tx_encoding_dropdown)
+                serial_groupbox_layout.addLayout(encodings_layout)
+
+                serial_groupbox_layout.addLayout(comport_layout)
                 serial_groupbox.setLayout(serial_groupbox_layout)
-                serial_groupbox_layout.addLayout(com_layout)
+                serial_groupbox_layout.addLayout(comport_layout)
                 serial_groupbox_layout.addLayout(buttons_layout)
                 test_com_button = QPushButton("Test COM")
                 clear_button = QPushButton("Clear")
@@ -101,6 +147,7 @@ class SerialSniffer(QWidget):
                 serial_groupbox_layout.addWidget(clear_button)
                 test_com_button.clicked.connect(lambda _, idx=i: self.test_com_onclick(idx))
                 clear_button.clicked.connect(lambda _, idx=i: self.clear_data_onclick(idx))
+
                 open_button = QPushButton('Open')
                 close_button = QPushButton('Close')
                 print("Value of crt:", i)
@@ -109,7 +156,7 @@ class SerialSniffer(QWidget):
                 buttons_layout.addWidget(open_button)
                 buttons_layout.addWidget(close_button)
 
-                self.serial_combos.append(com_dropdown)
+                self.serial_combos.append([comport_dropdown, comspeed_dropdown])
                 self.serial_settings.append(serial_groupbox)
                 self.right_layout.addWidget(serial_groupbox)
 
@@ -145,7 +192,10 @@ class SerialSniffer(QWidget):
                                                 close_button.setEnabled,
                                                 test_com_button.setEnabled,
                                                 input_field.setEnabled,
-                                                send_button.setEnabled])
+                                                send_button.setEnabled,
+                                                comport_dropdown.setEnabled,
+                                                comspeed_dropdown.setEnabled
+                                                ])
 
         elif num_serials < current_num_serials:
             for i in range(num_serials, current_num_serials):
@@ -172,7 +222,7 @@ class SerialSniffer(QWidget):
         self.serial_models[idx].setStringList([])
 
     def test_com_onclick(self, idx):
-        selected_port = self.serial_combos[idx].currentText().split(" ")[0]
+        selected_port = self.get_port(idx)
 
         if selected_port:
             try:
@@ -185,16 +235,28 @@ class SerialSniffer(QWidget):
             except serial.SerialException as e:
                 print(f"Error: {e}")
 
+    def update_all_dropdown_ports(self):
+        for i in range(len(self.serial_combos)):
+            if self.serial_combos[i][0].isEnabled():
+                self.update_dropdown_ports(i)
+
+    def update_dropdown_ports(self, idx):
+        comport_dropdown = self.serial_combos[idx][0]
+        comport_dropdown.clear()
+        comport_dropdown.addItems(get_available_ports())
+
     def update_serial_model(self, idx, data):
         final = self.serial_models[idx].stringList()
+        if len(final) > MAX_ROWS:
+            final.pop(0)
         final.append(data)
         self.serial_models[idx].setStringList(final)
         self.serial_data_list[idx].verticalScrollBar().setValue(self.serial_data_list[idx]
                                                                 .verticalScrollBar().maximum())
 
     def set_visibility(self, idx, op_type):
-        serial_opened_states = [False, True, False, True, True]
-        serial_closed_states  = [True, False, True, False, False]
+        serial_opened_states = [False, True, False, True, True, False, False]
+        serial_closed_states = [True, False, True, False, False, True, True]
 
         states = serial_opened_states if op_type else serial_closed_states
 
@@ -213,16 +275,30 @@ class SerialSniffer(QWidget):
 
     def serial_send(self, idx):
         # msg = b"Hello!"
-        msg = self.data_inputs[idx].text().encode()
+        text = self.data_inputs[idx].text().upper()
+        # msg = text.encode()
+        try:
+            msg = bytes.fromhex(text)
+        except Exception as e:
+            QMessageBox.information(self, "Alert", str(e))
+            return
+
         try:
             self.serial_stream[idx].write(msg)
         except Exception as e:
             print(e)
 
+    def get_port(self, idx):
+        return self.serial_combos[idx][0].currentText().split(" ")[0]
+
+    def get_speed(self, idx):
+        return self.serial_combos[idx][1].currentText().split(" ")[0]
+
     def serial_open(self, idx):
-        selected_port = self.serial_combos[idx].currentText().split(" ")[0]
+        selected_port = self.get_port(idx)
+        selected_speed = self.get_speed(idx)
         try:
-            self.serial_stream[idx] = serial.Serial(selected_port, 115200, timeout=0.1)
+            self.serial_stream[idx] = serial.Serial(selected_port, selected_speed, timeout=0.1)
         except Exception as e:
             QMessageBox.information(self, "Alert", str(e))
 
