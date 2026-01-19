@@ -1,2 +1,26 @@
 
-pyinstaller --onefile --noconsole --paths=C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\app.py
+# IMPORTANT: Always activate the venv before building!
+# Option 1: Use the spec file (recommended - includes all necessary hidden imports)
+# Run from project directory - output will be in ./dist and ./build
+# Creates a single .exe file (--onefile)
+cd C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer
+.\venv\Scripts\Activate.ps1
+pyinstaller app.spec
+
+# Option 1b: Use onedir spec file (RECOMMENDED - works better with PyQt6)
+# Creates a folder with executable and all dependencies
+cd C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer
+.\venv\Scripts\Activate.ps1
+pyinstaller -y app-onedir.spec
+
+# Option 2: Use command line with hidden imports (run from project directory)
+# --collect-all PyQt6 collects all DLLs, data files, and binaries from PyQt6
+# --noupx disables UPX compression which can corrupt DLLs
+cd C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer
+pyinstaller --onefile --noconsole --noupx --distpath=./dist --workpath=./build --collect-all PyQt6 --hidden-import=pkgutil --add-data="icon.png;." app.py
+
+# Option 3: Use command line with full paths (run from any directory)
+# Output will be in the project's dist and build directories
+# --collect-all PyQt6 collects all DLLs, data files, and binaries from PyQt6
+# --noupx disables UPX compression which can corrupt DLLs
+pyinstaller --onefile --noconsole --noupx --distpath=C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\dist --workpath=C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\build --paths=C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer --collect-all PyQt6 --hidden-import=pkgutil --add-data="C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\icon.png;." C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\app.py

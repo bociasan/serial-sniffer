@@ -1,4 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Alternative spec file using --onedir instead of --onefile
+# This creates a folder with the executable and all dependencies
+# Sometimes works better with PyQt6 DLLs
 from PyInstaller.utils.hooks import collect_all
 
 datas = [('icon.png', '.')]
@@ -42,16 +45,13 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='app',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,
     icon='icon.ico',
     disable_windowed_traceback=False,
@@ -59,4 +59,15 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name='app',
 )
