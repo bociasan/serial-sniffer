@@ -1,13 +1,23 @@
 import sys
 import threading
+from datetime import datetime
 
 import serial.tools.list_ports
 from PyQt5.QtCore import Qt, QStringListModel
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QComboBox, QHBoxLayout, QPushButton, QGroupBox, QLabel,
                              QListView, QMessageBox, QLineEdit)
 
+APP_NAME = "Serial Sniffer"
+APP_VERSION = "v1.0"
+DEV_NAME = "Alex Boiciuc"
+GIT_PAGE = "https://github.com/bociasan/serial-sniffer"
+ICON_PATH = r"C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\icon.png"
+
 MAX_SERIALS = 4
 MAX_ROWS = 50
+
+now = 0
 
 
 def get_available_ports():
@@ -19,19 +29,6 @@ def get_available_ports():
         port_description = port.description
         com_ports.append(f"{port_name} - {port_description}")
     return com_ports
-
-
-def uart_listen(finish_func, idx, ser, log):
-    try:
-        while True:
-            bs = ser.read(256)
-            if len(bs):
-                bs_list = list(bs)
-                my_hex = ' '.join(f'{i:02X}' for i in bs_list)
-                log(idx, f'[{len(bs_list)}] : {my_hex} \n')
-    except Exception as e:
-        print(e)
-    finish_func(idx)
 
 
 class SerialSniffer(QWidget):
@@ -58,7 +55,7 @@ class SerialSniffer(QWidget):
         self.serial_combos = []
         self.buttons_visibility = []
         self.data_inputs = []
-        self.encodings = []
+        self.encoding_dropdown = []
         # self.current_num_serials = 0
         self.dropdown = QComboBox()
         self.init_ui()
@@ -70,7 +67,11 @@ class SerialSniffer(QWidget):
         self.main_layout.addWidget(self.left_groupbox)
         self.main_layout.addWidget(self.right_groupbox)
 
-        settings_groupbox = QGroupBox(f'Settings')
+        about_button = QPushButton("About")
+        about_button.clicked.connect(self.about_onclick)
+        self.right_layout.addWidget(about_button)
+
+        settings_groupbox = QGroupBox(f'Settings ({APP_VERSION})')
         settings_groupbox_layout = QVBoxLayout()
         settings_groupbox.setLayout(settings_groupbox_layout)
         dropdown_label = QLabel("Count:")
@@ -136,6 +137,8 @@ class SerialSniffer(QWidget):
                 encodings_layout.addWidget(rx_encoding_dropdown)
                 encodings_layout.addWidget(tx_encoding_dropdown)
                 serial_groupbox_layout.addLayout(encodings_layout)
+
+                self.encoding_dropdown.append([rx_encoding_dropdown, tx_encoding_dropdown])
 
                 serial_groupbox_layout.addLayout(comport_layout)
                 serial_groupbox.setLayout(serial_groupbox_layout)
@@ -208,6 +211,7 @@ class SerialSniffer(QWidget):
                 self.buttons_visibility.pop()
                 item = self.serial_settings.pop()
                 item.deleteLater()
+                self.encoding_dropdown.pop()
 
                 ### DATA ### noqa
 
@@ -217,6 +221,67 @@ class SerialSniffer(QWidget):
 
                 item = self.serial_data.pop()
                 item.deleteLater()
+
+    def uart_listen(self, finish_func, idx, ser, log, mode=1):
+        try:
+            if mode:
+                while True:
+                    bs = ser.read(256)
+                    if len(bs):
+                        if self.encoding_dropdown[idx][0].currentText() == 'ASCII':
+                            # bs = bs.replace(b'\x00', b'')
+                            text = bs.decode("latin-1")
+                            log(idx, text)
+                        elif self.encoding_dropdown[idx][0].currentText() == 'BINARY':
+                            bs_list = list(bs)
+                            my_hex = ' '.join(f'{i:02X}' for i in bs_list)
+                            log(idx, f'[{len(bs_list)}] : {my_hex} \n')
+            # else:
+            #     while True:
+            #         transaction = []
+            #         last_byte_time = None
+            #
+            #         while True:
+            #             ch = ser.read()  # Read one byte
+            #             if len(ch):
+            #                 ch = ch[0]
+            #                 now = datetime.now()
+            #                 if last_byte_time is None or (now - last_byte_time).total_seconds() < (2*10)/int(self.get_speed(idx)):
+            #                     transaction.append(ch)
+            #                     last_byte_time = now
+            #                 else:
+            #                     # Delay exceeded, process the transaction
+            #                     # print(transaction)
+            #
+            #                     my_hex = ' '.join(f'{i:02X}' for i in transaction)
+            #                     log(idx, f'[{len(transaction)}] : {my_hex} \n')
+            #
+            #                     transaction = []
+            #                     last_byte_time = None
+
+        except Exception as e:
+            print(e)
+        finish_func(idx)
+
+    def about_onclick(self):
+        # text = f"{APP_NAME} {APP_VERSION}\n Dev: {DEV_NAME}\n {GIT_PAGE}"
+
+        html = f'<h3>{APP_NAME} {APP_VERSION}<br> Dev: {DEV_NAME}<br> <a href="{GIT_PAGE}">Git link</a></>'
+        html_content = f"""
+        <h3 style="color: #2E8B57;">{APP_NAME} {APP_VERSION}</h3>
+        <p><strong>Dev:</strong> {DEV_NAME}</p>
+        <p><a href="{GIT_PAGE}" style="color: #1E90FF; text-decoration: none;">Git link</a></p>
+        """
+        # QMessageBox.information(self, "About", text)
+
+        # Create the message box
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setWindowTitle("About")
+        msg_box.setTextFormat(Qt.RichText)  # Enable rich text (HTML) formatting
+        msg_box.setText(html_content)
+        # Show the message box
+        msg_box.exec_()
 
     def clear_data_onclick(self, idx):
         self.serial_models[idx].setStringList([])
@@ -270,8 +335,8 @@ class SerialSniffer(QWidget):
     def start_listening(self, idx):
         self.serial_open(idx)
         self.set_visibility(idx, True)
-        threading.Thread(target=uart_listen,
-                         args=(self.thread_finished, idx, self.serial_stream[idx], self.update_serial_model)).start()
+        threading.Thread(target=self.uart_listen,
+                         args=(self.thread_finished, idx, self.serial_stream[idx], self.update_serial_model, 1)).start()
 
     def serial_send(self, idx):
         # msg = b"Hello!"
@@ -294,11 +359,17 @@ class SerialSniffer(QWidget):
     def get_speed(self, idx):
         return self.serial_combos[idx][1].currentText().split(" ")[0]
 
-    def serial_open(self, idx):
+    def serial_open(self, idx, tim=0.1):
         selected_port = self.get_port(idx)
         selected_speed = self.get_speed(idx)
         try:
-            self.serial_stream[idx] = serial.Serial(selected_port, selected_speed, timeout=0.1)
+            if tim:
+                self.serial_stream[idx] = serial.Serial(selected_port, selected_speed, timeout=0.04)  # 0.1
+            elif tim == 0:
+                tim = (1.1*10)/int(selected_speed)
+                # tim = 0.1
+                self.serial_stream[idx] = serial.Serial(selected_port, selected_speed, timeout=tim)
+
         except Exception as e:
             QMessageBox.information(self, "Alert", str(e))
 
@@ -318,6 +389,7 @@ class SerialSniffer(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(ICON_PATH))
     window = SerialSniffer()
     window.show()
     sys.exit(app.exec_())

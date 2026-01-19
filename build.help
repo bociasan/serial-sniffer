@@ -1,0 +1,2 @@
+
+pyinstaller --onefile --noconsole --paths=C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\app.py
