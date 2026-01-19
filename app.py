@@ -3,13 +3,13 @@ import threading
 from datetime import datetime
 
 import serial.tools.list_ports
-from PyQt5.QtCore import Qt, QStringListModel
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QComboBox, QHBoxLayout, QPushButton, QGroupBox, QLabel,
+from PyQt6.QtCore import Qt, QStringListModel
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QComboBox, QHBoxLayout, QPushButton, QGroupBox, QLabel,
                              QListView, QMessageBox, QLineEdit)
 
 APP_NAME = "Serial Sniffer"
-APP_VERSION = "v1.0"
+APP_VERSION = "v1.1"
 DEV_NAME = "Alex Boiciuc"
 GIT_PAGE = "https://github.com/bociasan/serial-sniffer"
 ICON_PATH = r"C:\Users\AlexandruBoiciuc\PycharmProjects\serial-sniffer\icon.png"
@@ -27,7 +27,7 @@ def get_available_ports():
     for port in sorted_com_ports:
         port_name = port.device
         port_description = port.description
-        com_ports.append(f"{port_name} - {port_description}")
+        com_ports.append(f"{port_name} {port_description}")
     return com_ports
 
 
@@ -40,7 +40,7 @@ class SerialSniffer(QWidget):
 
         self.left_layout = QVBoxLayout()
         self.right_layout = QVBoxLayout()
-        self.right_layout.setAlignment(Qt.AlignTop)
+        self.right_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.left_groupbox = QGroupBox()
         self.right_groupbox = QGroupBox()
         self.right_groupbox.setFixedWidth(250)
@@ -108,9 +108,6 @@ class SerialSniffer(QWidget):
                 comport_dropdown = QComboBox()
                 comport_dropdown.clear()
                 comport_dropdown.addItems(get_available_ports())
-                comport_label = QLabel("Select COM:")
-                comport_label.setAlignment(Qt.AlignRight)
-                comport_layout.addWidget(comport_label)
                 comport_layout.addWidget(comport_dropdown)
                 serial_groupbox_layout.addLayout(comport_layout)
 
@@ -121,7 +118,7 @@ class SerialSniffer(QWidget):
                 comspeed_dropdown.addItems(COM_SPEEDS)
                 comspeed_dropdown.setCurrentIndex(9)
                 comspeed_label = QLabel("SPEED:")
-                comspeed_label.setAlignment(Qt.AlignRight)
+                comspeed_label.setAlignment(Qt.AlignmentFlag.AlignRight)
                 comspeed_layout.addWidget(comspeed_label)
                 comspeed_layout.addWidget(comspeed_dropdown)
                 serial_groupbox_layout.addLayout(comspeed_layout)
@@ -276,12 +273,12 @@ class SerialSniffer(QWidget):
 
         # Create the message box
         msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setIcon(QMessageBox.Icon.Information)
         msg_box.setWindowTitle("About")
-        msg_box.setTextFormat(Qt.RichText)  # Enable rich text (HTML) formatting
+        msg_box.setTextFormat(Qt.TextFormat.RichText)  # Enable rich text (HTML) formatting
         msg_box.setText(html_content)
         # Show the message box
-        msg_box.exec_()
+        msg_box.exec()
 
     def clear_data_onclick(self, idx):
         self.serial_models[idx].setStringList([])
@@ -392,4 +389,4 @@ if __name__ == '__main__':
     app.setWindowIcon(QIcon(ICON_PATH))
     window = SerialSniffer()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
